@@ -35,6 +35,8 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
   const encryptionManager = EncryptionManager.getInstance();
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const localAudioRef = useRef<HTMLAudioElement>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement>(null);
 
   const {
     isConnected,
@@ -116,16 +118,42 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
     endCall: webRTCEndCall
   } = useWebRTC({
     onLocalStream: (stream) => {
-      console.log('Got local stream');
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
+      console.log('Got local stream with tracks:', stream.getTracks().map(t => t.kind));
+      setTimeout(() => {
+        if (callState.isVideo && localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+          localVideoRef.current.onloadedmetadata = () => {
+            console.log('Local video metadata loaded');
+            localVideoRef.current?.play().catch(e => console.error('Error playing local video:', e));
+          };
+        }
+        if (!callState.isVideo && localAudioRef.current) {
+          localAudioRef.current.srcObject = stream;
+          localAudioRef.current.onloadedmetadata = () => {
+            console.log('Local audio metadata loaded');
+            localAudioRef.current?.play().catch(e => console.error('Error playing local audio:', e));
+          };
+        }
+      }, 100);
     },
     onRemoteStream: (stream) => {
-      console.log('Got remote stream');
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = stream;
-      }
+      console.log('Got remote stream with tracks:', stream.getTracks().map(t => t.kind));
+      setTimeout(() => {
+        if (callState.isVideo && remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = stream;
+          remoteVideoRef.current.onloadedmetadata = () => {
+            console.log('Remote video metadata loaded');
+            remoteVideoRef.current?.play().catch(e => console.error('Error playing remote video:', e));
+          };
+        }
+        if (!callState.isVideo && remoteAudioRef.current) {
+          remoteAudioRef.current.srcObject = stream;
+          remoteAudioRef.current.onloadedmetadata = () => {
+            console.log('Remote audio metadata loaded');
+            remoteAudioRef.current?.play().catch(e => console.error('Error playing remote audio:', e));
+          };
+        }
+      }, 100);
     },
     onConnectionStateChange: (state) => {
       console.log('WebRTC connection state:', state);
@@ -463,60 +491,99 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
 
       {/* Call Interface */}
       {callState.isActive && (
-        <div className="fixed inset-0 bg-black z-40 flex flex-col">
-          <div className="relative flex-1 flex items-center justify-center">
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover"
-            />
+        <div className="fixed inset-0 bg-gradient-to-br from-slate-900 to-slate-800 z-40 flex flex-col">
+          {callState.isVideo ? (
+            <div className="relative flex-1 flex items-center justify-center">
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-contain bg-black"
+              />
 
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className="absolute bottom-4 right-4 w-48 h-36 object-cover rounded-lg border-2 border-slate-600 shadow-lg"
-            />
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="absolute bottom-20 right-4 w-48 h-36 object-cover rounded-xl border-2 border-white/20 shadow-2xl bg-slate-800"
+              />
 
-            <div className="absolute top-4 left-4 flex items-center space-x-3 bg-slate-900/80 backdrop-blur-sm px-4 py-2 rounded-lg">
-              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-white font-medium">
-                {callState.isVideo ? 'Video Call' : 'Voice Call'} in progress
-              </span>
-            </div>
+              <div className="absolute top-6 left-1/2 transform -translate-x-1/2 flex items-center space-x-2 bg-black/60 backdrop-blur-lg px-4 py-2 rounded-full">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-white text-sm font-medium">Video Call</span>
+              </div>
 
-            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex items-center space-x-3 bg-slate-900/80 backdrop-blur-sm px-6 py-3 rounded-full">
-              <button
-                onClick={handleToggleMute}
-                className={`p-3 rounded-full transition-colors ${
-                  isMuted ? 'bg-red-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                }`}
-                title={isMuted ? 'Unmute' : 'Mute'}
-              >
-                {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-              </button>
-              {callState.isVideo && (
+              <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex items-center space-x-4 bg-black/60 backdrop-blur-lg px-8 py-4 rounded-full">
+                <button
+                  onClick={handleToggleMute}
+                  className={`p-4 rounded-full transition-all ${
+                    isMuted ? 'bg-red-500 text-white' : 'bg-white/20 text-white hover:bg-white/30'
+                  }`}
+                  title={isMuted ? 'Unmute' : 'Mute'}
+                >
+                  {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                </button>
                 <button
                   onClick={handleToggleVideo}
-                  className={`p-3 rounded-full transition-colors ${
-                    isVideoOff ? 'bg-red-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  className={`p-4 rounded-full transition-all ${
+                    isVideoOff ? 'bg-red-500 text-white' : 'bg-white/20 text-white hover:bg-white/30'
                   }`}
                   title={isVideoOff ? 'Turn on camera' : 'Turn off camera'}
                 >
-                  {isVideoOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+                  {isVideoOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
                 </button>
-              )}
-              <button
-                onClick={handleEndCall}
-                className="p-3 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
-                title="End call"
-              >
-                <X className="w-5 h-5" />
-              </button>
+                <button
+                  onClick={handleEndCall}
+                  className="p-4 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+                  title="End call"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="relative flex-1 flex flex-col items-center justify-center">
+              <div className="flex flex-col items-center space-y-8">
+                <div className="relative">
+                  <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                    <Phone className="w-16 h-16 text-white" />
+                  </div>
+                  <div className="absolute inset-0 bg-blue-400 rounded-full animate-ping opacity-20"></div>
+                </div>
+
+                <div className="text-center">
+                  <h3 className="text-3xl font-bold text-white mb-2">Voice Call</h3>
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <p className="text-slate-300 text-lg">Connected</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-4 mt-12">
+                  <button
+                    onClick={handleToggleMute}
+                    className={`p-5 rounded-full transition-all ${
+                      isMuted ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
+                    }`}
+                    title={isMuted ? 'Unmute' : 'Mute'}
+                  >
+                    {isMuted ? <MicOff className="w-7 h-7" /> : <Mic className="w-7 h-7" />}
+                  </button>
+                  <button
+                    onClick={handleEndCall}
+                    className="p-5 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+                    title="End call"
+                  >
+                    <X className="w-7 h-7" />
+                  </button>
+                </div>
+              </div>
+
+              <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+              <audio ref={localAudioRef} autoPlay playsInline muted className="hidden" />
+            </div>
+          )}
         </div>
       )}
 

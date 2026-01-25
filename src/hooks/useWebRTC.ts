@@ -45,11 +45,13 @@ export function useWebRTC({
     };
 
     pc.ontrack = (event) => {
-      console.log('Received remote track');
-      const remoteStream = event.streams[0];
-      remoteStreamRef.current = remoteStream;
-      if (onRemoteStream) {
-        onRemoteStream(remoteStream);
+      console.log('Received remote track:', event.track.kind);
+      if (event.streams && event.streams[0]) {
+        console.log('Remote stream received with tracks:', event.streams[0].getTracks().map(t => t.kind));
+        remoteStreamRef.current = event.streams[0];
+        if (onRemoteStream) {
+          onRemoteStream(event.streams[0]);
+        }
       }
     };
 
