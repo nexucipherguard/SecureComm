@@ -200,9 +200,41 @@ io.on('connection', (socket) => {
         return;
       }
 
-      // Check if room exists
+      // If room doesn't exist, create it as public (for custom room IDs)
       if (!roomSettings) {
-        socket.emit('join-error', { message: 'Room does not exist' });
+        console.log(`Creating new public room ${roomId} via custom join`);
+        roomSettings = await createRoomInDB(roomId, userName, socket.id, true); // Always public for custom joins
+
+        if (!roomSettings) {
+          socket.emit('join-error', { message: 'Failed to create room' });
+          return;
+        }
+
+        // Create room in memory
+        const room = getOrCreateRoom(roomId);
+
+        // Add first participant (not explicitly marked as host)
+        await addParticipantToDB(roomId, userName, socket.id, false);
+
+        const participant = {
+          id: socket.id,
+          name: userName,
+          isOnline: true,
+          joinedAt: Date.now(),
+          isHost: false
+        };
+
+        room.participants.set(socket.id, participant);
+        userSockets.set(socket.id, { roomId, userName, isHost: false });
+
+        socket.join(roomId);
+
+        // Send room info
+        socket.emit('room-joined', { roomId, isHost: false, isPublic: true });
+        socket.emit('room-messages', room.messages);
+        socket.emit('participants-updated', Array.from(room.participants.values()));
+
+        console.log(`Public room ${roomId} created via custom join by ${userName}`);
         return;
       }
 
