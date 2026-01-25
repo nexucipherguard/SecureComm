@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run server\" \"vite\"",
+    "start": "concurrently \"npm run server\" \"vite\"",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
