@@ -119,15 +119,16 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
   } = useWebRTC({
     onLocalStream: (stream) => {
       console.log('Got local stream with tracks:', stream.getTracks().map(t => t.kind));
+      const hasVideo = stream.getVideoTracks().length > 0;
       setTimeout(() => {
-        if (callState.isVideo && localVideoRef.current) {
+        if (hasVideo && localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
           localVideoRef.current.onloadedmetadata = () => {
             console.log('Local video metadata loaded');
             localVideoRef.current?.play().catch(e => console.error('Error playing local video:', e));
           };
         }
-        if (!callState.isVideo && localAudioRef.current) {
+        if (!hasVideo && localAudioRef.current) {
           localAudioRef.current.srcObject = stream;
           localAudioRef.current.onloadedmetadata = () => {
             console.log('Local audio metadata loaded');
@@ -138,15 +139,16 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
     },
     onRemoteStream: (stream) => {
       console.log('Got remote stream with tracks:', stream.getTracks().map(t => t.kind));
+      const hasVideo = stream.getVideoTracks().length > 0;
       setTimeout(() => {
-        if (callState.isVideo && remoteVideoRef.current) {
+        if (hasVideo && remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = stream;
           remoteVideoRef.current.onloadedmetadata = () => {
             console.log('Remote video metadata loaded');
             remoteVideoRef.current?.play().catch(e => console.error('Error playing remote video:', e));
           };
         }
-        if (!callState.isVideo && remoteAudioRef.current) {
+        if (!hasVideo && remoteAudioRef.current) {
           remoteAudioRef.current.srcObject = stream;
           remoteAudioRef.current.onloadedmetadata = () => {
             console.log('Remote audio metadata loaded');
@@ -235,7 +237,7 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
         }
 
         const targetId = otherParticipants[0].id;
-        setCallState({ isActive: false, isVideo, isIncoming: false });
+        setCallState({ isActive: true, isVideo, isIncoming: false });
         socketStartCall(isVideo);
 
         await webRTCStartCall(isVideo, targetId);
