@@ -221,16 +221,18 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
 
   const handleAcceptCall = async () => {
     if (incomingCall) {
-      try {
-        acceptCall(incomingCall.callerId);
-        setCallState({ isActive: true, isVideo: incomingCall.isVideo, isIncoming: true });
+      const callData = incomingCall;
+      setIncomingCall(null);
 
-        await webRTCAnswerCall(incomingCall.isVideo, incomingCall.callerId);
+      try {
+        acceptCall(callData.callerId);
+        setCallState({ isActive: true, isVideo: callData.isVideo, isIncoming: true });
+
+        await webRTCAnswerCall(callData.isVideo, callData.callerId);
       } catch (error) {
         console.error('Error accepting call:', error);
         alert('Failed to accept call. Please check camera/microphone permissions.');
         setCallState({ isActive: false, isVideo: false, isIncoming: false });
-        setIncomingCall(null);
       }
     }
   };

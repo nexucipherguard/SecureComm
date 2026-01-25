@@ -21,8 +21,9 @@ export function useWebRTC({
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteStreamRef = useRef<MediaStream | null>(null);
   const [isInitiator, setIsInitiator] = useState(false);
-  const [remotePeerId, setRemotePeerId] = useState<string | null>(null);
+  const remotePeerIdRef = useRef<string | null>(null);
   const pendingIceCandidates = useRef<RTCIceCandidateInit[]>([]);
+  const pendingOffer = useRef<{ offer: RTCSessionDescriptionInit; callerId: string } | null>(null);
 
   const createPeerConnection = () => {
     if (peerConnectionRef.current) {
@@ -37,9 +38,9 @@ export function useWebRTC({
     });
 
     pc.onicecandidate = (event) => {
-      if (event.candidate && remotePeerId) {
-        console.log('Sending ICE candidate');
-        sendIceCandidate(event.candidate.toJSON(), remotePeerId);
+      if (event.candidate && remotePeerIdRef.current) {
+        console.log('Sending ICE candidate to', remotePeerIdRef.current);
+        sendIceCandidate(event.candidate.toJSON(), remotePeerIdRef.current);
       }
     };
 
@@ -73,9 +74,9 @@ export function useWebRTC({
 
   const startCall = async (isVideo: boolean, targetId: string) => {
     try {
-      console.log('Starting call, isVideo:', isVideo);
+      console.log('Starting call, isVideo:', isVideo, 'targetId:', targetId);
       setIsInitiator(true);
-      setRemotePeerId(targetId);
+      remotePeerIdRef.current = targetId;
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: isVideo,
@@ -110,9 +111,9 @@ export function useWebRTC({
 
   const answerCall = async (isVideo: boolean, callerId: string) => {
     try {
-      console.log('Answering call, isVideo:', isVideo);
+      console.log('Answering call, isVideo:', isVideo, 'callerId:', callerId);
       setIsInitiator(false);
-      setRemotePeerId(callerId);
+      remotePeerIdRef.current = callerId;
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: isVideo,
@@ -132,6 +133,27 @@ export function useWebRTC({
         pc.addTrack(track, stream);
       });
 
+      if (pendingOffer.current && pendingOffer.current.callerId === callerId) {
+        console.log('Processing pending offer');
+        await pc.setRemoteDescription(new RTCSessionDescription(pendingOffer.current.offer));
+        console.log('Set remote description from pending offer');
+
+        if (pendingIceCandidates.current.length > 0) {
+          console.log('Adding pending ICE candidates:', pendingIceCandidates.current.length);
+          for (const candidate of pendingIceCandidates.current) {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          }
+          pendingIceCandidates.current = [];
+        }
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        console.log('Created and set local answer');
+
+        sendAnswer(answer, callerId);
+        pendingOffer.current = null;
+      }
+
       return stream;
     } catch (error) {
       console.error('Error answering call:', error);
@@ -144,7 +166,8 @@ export function useWebRTC({
       console.log('Handling offer from', callerId);
       const pc = peerConnectionRef.current;
       if (!pc) {
-        console.error('No peer connection when handling offer');
+        console.log('No peer connection yet, storing offer for later');
+        pendingOffer.current = { offer, callerId };
         return;
       }
 
@@ -258,9 +281,10 @@ export function useWebRTC({
       peerConnectionRef.current = null;
     }
 
-    setRemotePeerId(null);
+    remotePeerIdRef.current = null;
     setIsInitiator(false);
     pendingIceCandidates.current = [];
+    pendingOffer.current = null;
   };
 
   useEffect(() => {
