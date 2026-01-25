@@ -32,6 +32,8 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [showFilePreferenceModal, setShowFilePreferenceModal] = useState(false);
   const [viewedMessages, setViewedMessages] = useState<Set<string>>(new Set());
+  const [removedMessages, setRemovedMessages] = useState<Set<string>>(new Set());
+  const [messageTimers, setMessageTimers] = useState<Map<string, number>>(new Map());
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -320,6 +322,25 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
 
   const markMessageAsViewed = (messageId: string) => {
     setViewedMessages(prev => new Set([...prev, messageId]));
+
+    // Start countdown from 30 seconds
+    let timeLeft = 30;
+    setMessageTimers(prev => new Map(prev).set(messageId, timeLeft));
+
+    const countdownInterval = setInterval(() => {
+      timeLeft--;
+      setMessageTimers(prev => new Map(prev).set(messageId, timeLeft));
+
+      if (timeLeft <= 0) {
+        clearInterval(countdownInterval);
+        setRemovedMessages(prev => new Set([...prev, messageId]));
+        setMessageTimers(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(messageId);
+          return newMap;
+        });
+      }
+    }, 1000);
   };
 
   const handleStartCall = async (isVideo: boolean) => {
@@ -733,6 +754,7 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
                 {(message.type === 'image' || message.type === 'video' || message.type === 'file') && message.fileName && (() => {
                   const preference = message.fileViewPreference || 'download';
                   const isViewed = viewedMessages.has(message.id);
+                  const isRemoved = removedMessages.has(message.id);
                   const isOwn = message.sender === userName;
 
                   let showContent = false;
@@ -740,11 +762,11 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
                     showContent = true;
                   } else if (preference === 'preview') {
                     showContent = true;
-                  } else if (preference === 'one-time' && isViewed) {
+                  } else if (preference === 'one-time' && isViewed && !isRemoved) {
                     showContent = true;
                   }
 
-                  if (preference === 'one-time' && isViewed && !isOwn) {
+                  if (preference === 'one-time' && isRemoved && !isOwn) {
                     return (
                       <div className="mt-2 p-3 bg-black/30 rounded-lg border border-white/10 text-center">
                         <Lock className="w-4 h-4 mx-auto mb-1 opacity-50" />
@@ -755,6 +777,13 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
 
                   return (
                     <div className="mt-2">
+                      {preference === 'one-time' && isViewed && !isRemoved && !isOwn && (
+                        <div className="mb-2 p-2 bg-amber-500/20 border border-amber-500/30 rounded-lg text-center">
+                          <div className="text-xs text-amber-300">
+                            Content will disappear in {messageTimers.get(message.id) || 0} seconds
+                          </div>
+                        </div>
+                      )}
                       {showContent && message.fileContent && (
                         <div
                           className="mb-2 rounded-lg overflow-hidden border border-white/10 bg-black/30"
