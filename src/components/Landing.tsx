@@ -60,11 +60,6 @@ export default function Landing({ onCreateRoom, onJoinRoom }: LandingProps) {
       <div className="relative z-10 container mx-auto px-4 py-12">
         {/* Header */}
         <div className="text-center mb-16">
-          <div className="flex items-center justify-center mb-6">
-            <div className="p-3 bg-blue-500/20 rounded-full backdrop-blur-sm border border-blue-500/30">
-              <img src="https://nexuscipherguard.in/logo.png" alt="Logo" className="w-9 h-8" />
-            </div>
-          </div>
           <h1 className="text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
             SecureComm
             <span className="bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
