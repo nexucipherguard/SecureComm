@@ -260,23 +260,62 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
     }
   };
 
-  const handleSendFileWithPreference = (preference: 'download' | 'preview' | 'one-time') => {
-    if (pendingFile) {
-      const message: Omit<Message, 'id' | 'timestamp'> = {
-        content: `Shared ${pendingFile.type.startsWith('image/') ? 'image' : 'file'}: ${pendingFile.name}`,
-        sender: userName,
-        type: pendingFile.type.startsWith('image/') ? 'image' : 'file',
-        fileName: pendingFile.name,
-        fileSize: pendingFile.size,
-        encrypted: true,
-        fileViewPreference: preference,
-        viewedBy: []
+  const readFileAsBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result);
       };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
 
-      sendMessage(message);
-      setPendingFile(null);
-      setShowFilePreferenceModal(false);
+  const handleSendFileWithPreference = async (preference: 'download' | 'preview' | 'one-time') => {
+    if (pendingFile) {
+      try {
+        const fileContent = await readFileAsBase64(pendingFile);
+
+        let messageType: 'text' | 'image' | 'video' | 'file' | 'system' = 'file';
+        if (pendingFile.type.startsWith('image/')) {
+          messageType = 'image';
+        } else if (pendingFile.type.startsWith('video/')) {
+          messageType = 'video';
+        }
+
+        const message: Omit<Message, 'id' | 'timestamp'> = {
+          content: `Shared ${messageType}: ${pendingFile.name}`,
+          sender: userName,
+          type: messageType,
+          fileName: pendingFile.name,
+          fileSize: pendingFile.size,
+          fileType: pendingFile.type,
+          fileContent: fileContent,
+          encrypted: true,
+          fileViewPreference: preference,
+          viewedBy: []
+        };
+
+        sendMessage(message);
+        setPendingFile(null);
+        setShowFilePreferenceModal(false);
+      } catch (error) {
+        console.error('Error reading file:', error);
+        alert('Failed to read file. Please try again.');
+      }
     }
+  };
+
+  const handleDownloadFile = (message: Message) => {
+    if (!message.fileContent || !message.fileName) return;
+
+    const link = document.createElement('a');
+    link.href = message.fileContent;
+    link.download = message.fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const markMessageAsViewed = (messageId: string) => {
@@ -691,10 +730,12 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
                 <div className="break-words leading-relaxed">
                   {message.content}
                 </div>
-                {(message.type === 'image' || message.type === 'file') && message.fileName && (() => {
+                {(message.type === 'image' || message.type === 'video' || message.type === 'file') && message.fileName && (() => {
                   const preference = message.fileViewPreference || 'download';
                   const isViewed = viewedMessages.has(message.id);
                   const isOwn = message.sender === userName;
+                  const canView = preference === 'preview' || preference === 'one-time';
+                  const showContent = isOwn || (canView && (preference === 'preview' || (preference === 'one-time' && isViewed)));
 
                   if (preference === 'one-time' && isViewed && !isOwn) {
                     return (
@@ -706,44 +747,96 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
                   }
 
                   return (
-                    <div className="mt-2 p-2 bg-black/20 rounded-lg border border-white/10">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="truncate flex-1 mr-2">{message.fileName}</span>
-                        <div className="flex items-center space-x-2">
-                          {preference === 'one-time' && (
-                            <span className="flex items-center space-x-1 text-amber-400 text-xs">
-                              <EyeOff className="w-3 h-3" />
-                            </span>
-                          )}
-                          {preference === 'preview' && (
-                            <span className="flex items-center space-x-1 text-green-400 text-xs">
-                              <Eye className="w-3 h-3" />
-                            </span>
-                          )}
-                          {preference === 'download' && (
-                            <Download className="w-3 h-3 cursor-pointer hover:text-blue-300 transition-colors" />
-                          )}
-                          {preference === 'one-time' && !isOwn && !isViewed && (
-                            <button
-                              onClick={() => markMessageAsViewed(message.id)}
-                              className="text-amber-400 hover:text-amber-300 text-xs underline"
-                            >
-                              View
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      {message.fileSize && (
-                        <div className="text-xs opacity-60 mt-1 flex items-center justify-between">
-                          <span>{(message.fileSize / 1024).toFixed(1)} KB</span>
-                          {preference === 'preview' && (
-                            <span className="text-xs text-green-400">Preview Only</span>
-                          )}
-                          {preference === 'one-time' && !isViewed && !isOwn && (
-                            <span className="text-xs text-amber-400">One-time view</span>
+                    <div className="mt-2">
+                      {showContent && message.fileContent && (
+                        <div className="mb-2 rounded-lg overflow-hidden border border-white/10 bg-black/30">
+                          {message.type === 'image' ? (
+                            <img
+                              src={message.fileContent}
+                              alt={message.fileName}
+                              className="max-w-full h-auto"
+                              style={{ maxHeight: '300px', objectFit: 'contain' }}
+                            />
+                          ) : message.fileType?.startsWith('video/') ? (
+                            <video
+                              src={message.fileContent}
+                              controls
+                              className="max-w-full h-auto"
+                              style={{ maxHeight: '300px' }}
+                            />
+                          ) : message.fileType?.startsWith('audio/') ? (
+                            <audio src={message.fileContent} controls className="w-full" />
+                          ) : message.fileType === 'application/pdf' ? (
+                            <div className="p-4 text-center">
+                              <div className="text-sm text-slate-300 mb-2">PDF Preview</div>
+                              <iframe
+                                src={message.fileContent}
+                                className="w-full"
+                                style={{ height: '300px' }}
+                                title={message.fileName}
+                              />
+                            </div>
+                          ) : (
+                            <div className="p-4 text-center text-slate-400 text-sm">
+                              Preview not available for this file type
+                            </div>
                           )}
                         </div>
                       )}
+
+                      <div className="p-2 bg-black/20 rounded-lg border border-white/10">
+                        <div className="flex items-center justify-between text-xs mb-2">
+                          <span className="truncate flex-1 mr-2">{message.fileName}</span>
+                          <div className="flex items-center space-x-2">
+                            {preference === 'one-time' && (
+                              <span className="flex items-center space-x-1 text-amber-400 text-xs">
+                                <EyeOff className="w-3 h-3" />
+                              </span>
+                            )}
+                            {preference === 'preview' && (
+                              <span className="flex items-center space-x-1 text-green-400 text-xs">
+                                <Eye className="w-3 h-3" />
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {message.fileSize && (
+                          <div className="text-xs opacity-60 mb-2">
+                            {(message.fileSize / 1024).toFixed(1)} KB
+                          </div>
+                        )}
+
+                        <div className="flex items-center space-x-2">
+                          {preference === 'download' && message.fileContent && (
+                            <button
+                              onClick={() => handleDownloadFile(message)}
+                              className="flex items-center space-x-1 px-3 py-1 bg-blue-500 hover:bg-blue-600 rounded text-xs transition-colors"
+                            >
+                              <Download className="w-3 h-3" />
+                              <span>Download</span>
+                            </button>
+                          )}
+
+                          {preference === 'preview' && (
+                            <span className="text-xs text-green-400">Preview Only - No Downloads</span>
+                          )}
+
+                          {preference === 'one-time' && !isOwn && !isViewed && message.fileContent && (
+                            <button
+                              onClick={() => markMessageAsViewed(message.id)}
+                              className="flex items-center space-x-1 px-3 py-1 bg-amber-500 hover:bg-amber-600 rounded text-xs transition-colors"
+                            >
+                              <Eye className="w-3 h-3" />
+                              <span>View Once</span>
+                            </button>
+                          )}
+
+                          {preference === 'one-time' && isOwn && (
+                            <span className="text-xs text-amber-400">One-time view only</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   );
                 })()}

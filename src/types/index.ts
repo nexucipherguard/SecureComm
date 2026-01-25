@@ -6,6 +6,8 @@ export interface Message {
   type: 'text' | 'image' | 'video' | 'file' | 'system';
   fileName?: string;
   fileSize?: number;
+  fileType?: string;
+  fileContent?: string;
   encrypted?: boolean;
   fileViewPreference?: 'download' | 'preview' | 'one-time';
   viewedBy?: string[];
