@@ -6,6 +6,8 @@ function App() {
   const [currentRoom, setCurrentRoom] = useState<string | null>(null);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningFromLink, setIsJoiningFromLink] = useState(false);
+  const [isHost, setIsHost] = useState(false);
+  const [isPublic, setIsPublic] = useState(true);
 
   useEffect(() => {
     // Check for room ID in URL params when component mounts
@@ -57,11 +59,13 @@ function App() {
     return Math.random().toString(36).substring(2, 12).toUpperCase();
   };
 
-  const handleCreateRoom = () => {
+  const handleCreateRoom = (isPublicRoom: boolean) => {
     setIsCreatingRoom(true);
     setTimeout(() => {
       const roomId = generateRoomId();
       setCurrentRoom(roomId);
+      setIsHost(true);
+      setIsPublic(isPublicRoom);
       // Update URL without page reload
       window.history.pushState({}, '', `?room=${roomId}`);
       setIsCreatingRoom(false);
@@ -72,6 +76,7 @@ function App() {
     if (roomId && roomId.trim()) {
       const cleanRoomId = roomId.trim().toUpperCase();
       setCurrentRoom(cleanRoomId);
+      setIsHost(false);
       // Update URL without page reload
       window.history.pushState({}, '', `?room=${cleanRoomId}`);
     }
@@ -124,7 +129,7 @@ function App() {
 
   // Show chat room if user is in a room
   if (currentRoom) {
-    return <ChatRoom roomId={currentRoom} onLeave={handleLeaveRoom} />;
+    return <ChatRoom roomId={currentRoom} onLeave={handleLeaveRoom} isHost={isHost} isPublic={isPublic} />;
   }
 
   // Show landing page

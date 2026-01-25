@@ -10,18 +10,32 @@ import { Message, Participant, CallState } from '../types';
 import { EncryptionManager } from '../utils/encryption';
 import { useSocket } from '../hooks/useSocket';
 import { useWebRTC } from '../hooks/useWebRTC';
+import HostControls from './HostControls';
 
 interface ChatRoomProps {
   roomId: string;
   onLeave: () => void;
+  isHost?: boolean;
+  isPublic?: boolean;
 }
 
-export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
+interface JoinRequest {
+  requestId: string;
+  userName: string;
+  socketId: string;
+  requestedAt: string;
+}
+
+export default function ChatRoom({ roomId, onLeave, isHost: initialIsHost = false, isPublic: initialIsPublic = true }: ChatRoomProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [userName, setUserName] = useState('');
   const [isNameSet, setIsNameSet] = useState(false);
+  const [isHost, setIsHost] = useState(initialIsHost);
+  const [isPublic, setIsPublic] = useState(initialIsPublic);
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  const [joinStatus, setJoinStatus] = useState<'pending' | 'accepted' | 'rejected' | null>(null);
   const [callState, setCallState] = useState<CallState>({ isActive: false, isVideo: false, isIncoming: false });
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
@@ -58,10 +72,16 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
     endCall: socketEndCall,
     sendWebRTCOffer,
     sendWebRTCAnswer,
-    sendWebRTCIceCandidate
+    sendWebRTCIceCandidate,
+    acceptJoinRequest,
+    rejectJoinRequest,
+    removeParticipant,
+    toggleRoomPrivacy
   } = useSocket({
     roomId,
     userName: isNameSet ? userName : '', // Only pass userName when it's actually set
+    isHost,
+    isPublic,
     onNewMessage: (message) => {
       setMessages(prev => {
         // Avoid duplicate messages
@@ -116,6 +136,25 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
     onWebRTCIceCandidate: async (data) => {
       console.log('Received ICE candidate');
       await handleWebRTCIceCandidate(data.candidate);
+    },
+    onJoinPending: (data) => {
+      setJoinStatus('pending');
+    },
+    onJoinRequestAccepted: (data) => {
+      setJoinStatus('accepted');
+    },
+    onJoinRequestRejected: (data) => {
+      setJoinStatus('rejected');
+    },
+    onJoinRequest: (data) => {
+      setJoinRequests(prev => [...prev, data]);
+    },
+    onRemovedFromRoom: (data) => {
+      alert(data.message);
+      onLeave();
+    },
+    onRoomPrivacyUpdated: (data) => {
+      setIsPublic(data.isPublic);
     }
   });
 
@@ -494,6 +533,37 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
             >
               Join Room
             </button>
+
+            {joinStatus === 'pending' && (
+              <div className="p-4 bg-amber-500/20 border border-amber-500/30 rounded-lg">
+                <div className="flex items-start space-x-3">
+                  <div className="w-6 h-6 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin mt-1"></div>
+                  <div>
+                    <h4 className="text-amber-300 font-semibold">Waiting for Approval</h4>
+                    <p className="text-amber-200/80 text-sm mt-1">
+                      Your request to join this private room has been sent to the host. Please wait...
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {joinStatus === 'rejected' && (
+              <div className="p-4 bg-red-500/20 border border-red-500/30 rounded-lg">
+                <div>
+                  <h4 className="text-red-300 font-semibold">Request Rejected</h4>
+                  <p className="text-red-200/80 text-sm mt-1">
+                    Your request to join this room was rejected by the host.
+                  </p>
+                  <button
+                    onClick={onLeave}
+                    className="mt-3 w-full bg-red-500/20 hover:bg-red-500/30 text-red-300 py-2 px-4 rounded-lg transition-all"
+                  >
+                    Leave Room
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -996,7 +1066,7 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
 
       {/* Participants Sidebar */}
       {showParticipants && (
-        <div className="fixed right-0 top-0 h-full w-80 bg-slate-800/95 backdrop-blur-md border-l border-slate-700 p-4 z-50">
+        <div className="fixed right-0 top-0 h-full w-80 bg-slate-800/95 backdrop-blur-md border-l border-slate-700 p-4 z-50 overflow-y-auto">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-white font-semibold">Participants ({participants.length})</h3>
             <button
@@ -1006,14 +1076,34 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
               <X className="w-5 h-5" />
             </button>
           </div>
-          <div className="space-y-3">
+
+          <HostControls
+            isHost={isHost}
+            isPublic={isPublic}
+            joinRequests={joinRequests}
+            participants={participants}
+            currentUserName={userName}
+            onAcceptRequest={(requestId, socketId, userName) => {
+              acceptJoinRequest(requestId, socketId, userName);
+              setJoinRequests(prev => prev.filter(req => req.requestId !== requestId));
+            }}
+            onRejectRequest={(requestId, socketId) => {
+              rejectJoinRequest(requestId, socketId);
+              setJoinRequests(prev => prev.filter(req => req.requestId !== requestId));
+            }}
+            onRemoveParticipant={removeParticipant}
+            onTogglePrivacy={toggleRoomPrivacy}
+          />
+
+          <div className="space-y-3 mt-4">
             {participants.map((participant) => (
               <div key={participant.id} className="flex items-center space-x-3 p-3 bg-slate-700/50 rounded-lg border border-slate-600/50">
                 <div className={`w-3 h-3 rounded-full ${participant.isOnline ? 'bg-green-400' : 'bg-slate-500'}`}></div>
                 <div className="flex-1">
-                  <div className="text-white font-medium">
+                  <div className="text-white font-medium flex items-center">
                     {participant.name}
                     {participant.name === userName && <span className="text-xs text-slate-400 ml-1">(You)</span>}
+                    {participant.isHost && <span className="text-xs text-blue-400 ml-1">(Host)</span>}
                   </div>
                   <div className="text-xs text-slate-400">
                     {participant.isOnline ? 'Online' : 'Offline'}

@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { Shield, MessageSquare, Users, Zap, Copy, CheckCircle2, ExternalLink } from 'lucide-react';
+import { Shield, MessageSquare, Users, Zap, Copy, CheckCircle2, ExternalLink, Lock, Unlock } from 'lucide-react';
 
 interface LandingProps {
-  onCreateRoom: () => void;
+  onCreateRoom: (isPublic: boolean) => void;
   onJoinRoom: (roomId: string) => void;
 }
 
 export default function Landing({ onCreateRoom, onJoinRoom }: LandingProps) {
   const [joinRoomId, setJoinRoomId] = useState('');
   const [isJoining, setIsJoining] = useState(false);
+  const [showRoomSettings, setShowRoomSettings] = useState(false);
+  const [isPublic, setIsPublic] = useState(true);
 
   const handleJoinRoom = () => {
     if (joinRoomId.trim()) {
@@ -90,7 +92,7 @@ export default function Landing({ onCreateRoom, onJoinRoom }: LandingProps) {
                     Start a secure conversation and invite others with a shareable link
                   </p>
                   <button
-                    onClick={onCreateRoom}
+                    onClick={() => setShowRoomSettings(true)}
                     className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 px-8 rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-blue-500/25"
                   >
                     <Users className="w-5 h-5" />
@@ -197,6 +199,68 @@ export default function Landing({ onCreateRoom, onJoinRoom }: LandingProps) {
           </p>
         </div>
       </div>
+
+      {/* Room Settings Modal */}
+      {showRoomSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 max-w-md w-full shadow-2xl">
+            <h3 className="text-2xl font-bold text-white mb-6">Room Settings</h3>
+
+            <div className="space-y-6">
+              <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center space-x-3">
+                    {isPublic ? (
+                      <Unlock className="w-5 h-5 text-emerald-400" />
+                    ) : (
+                      <Lock className="w-5 h-5 text-amber-400" />
+                    )}
+                    <div>
+                      <h4 className="text-white font-semibold">
+                        {isPublic ? 'Public Room' : 'Private Room'}
+                      </h4>
+                      <p className="text-slate-400 text-sm mt-1">
+                        {isPublic
+                          ? 'Anyone with the room link can join immediately'
+                          : 'You must approve join requests before users can enter'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsPublic(!isPublic)}
+                  className={`w-full mt-3 py-2 px-4 rounded-lg font-medium transition-all ${
+                    isPublic
+                      ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30'
+                      : 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/30'
+                  }`}
+                >
+                  {isPublic ? 'Switch to Private' : 'Switch to Public'}
+                </button>
+              </div>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowRoomSettings(false)}
+                  className="flex-1 bg-slate-700 text-white py-3 px-6 rounded-xl font-semibold hover:bg-slate-600 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    onCreateRoom(isPublic);
+                    setShowRoomSettings(false);
+                  }}
+                  className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all"
+                >
+                  Create Room
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

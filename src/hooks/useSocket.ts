@@ -5,6 +5,8 @@ import { Message, Participant } from '../types';
 interface UseSocketProps {
   roomId: string;
   userName: string;
+  isHost?: boolean;
+  isPublic?: boolean;
   onNewMessage: (message: Message) => void;
   onParticipantsUpdate: (participants: Participant[]) => void;
   onUserTyping: (data: { userId: string; userName: string; isTyping: boolean }) => void;
@@ -15,11 +17,19 @@ interface UseSocketProps {
   onWebRTCOffer?: (data: { offer: RTCSessionDescriptionInit; callerId: string }) => void;
   onWebRTCAnswer?: (data: { answer: RTCSessionDescriptionInit; accepterId: string }) => void;
   onWebRTCIceCandidate?: (data: { candidate: RTCIceCandidateInit; senderId: string }) => void;
+  onJoinPending?: (data: { message: string; roomId: string }) => void;
+  onJoinRequestAccepted?: (data: { roomId: string }) => void;
+  onJoinRequestRejected?: (data: { message: string }) => void;
+  onJoinRequest?: (data: { requestId: string; userName: string; socketId: string; requestedAt: string }) => void;
+  onRemovedFromRoom?: (data: { message: string }) => void;
+  onRoomPrivacyUpdated?: (data: { isPublic: boolean }) => void;
 }
 
 export function useSocket({
   roomId,
   userName,
+  isHost = false,
+  isPublic = true,
   onNewMessage,
   onParticipantsUpdate,
   onUserTyping,
@@ -29,7 +39,13 @@ export function useSocket({
   onCallEnded,
   onWebRTCOffer,
   onWebRTCAnswer,
-  onWebRTCIceCandidate
+  onWebRTCIceCandidate,
+  onJoinPending,
+  onJoinRequestAccepted,
+  onJoinRequestRejected,
+  onJoinRequest,
+  onRemovedFromRoom,
+  onRoomPrivacyUpdated
 }: UseSocketProps) {
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -75,8 +91,8 @@ export function useSocket({
       
       // Only join the room once per connection
       if (!hasJoinedRef.current) {
-        console.log(`Joining room ${roomId} with username ${userName}`);
-        socket.emit('join-room', { roomId, userName });
+        console.log(`Joining room ${roomId} with username ${userName}, isHost: ${isHost}, isPublic: ${isPublic}`);
+        socket.emit('join-room', { roomId, userName, isHost, isPublic });
         hasJoinedRef.current = true;
       }
     });
@@ -147,6 +163,14 @@ export function useSocket({
     if (onWebRTCAnswer) socket.on('webrtc-answer', onWebRTCAnswer);
     if (onWebRTCIceCandidate) socket.on('webrtc-ice-candidate', onWebRTCIceCandidate);
 
+    // Room access control events
+    if (onJoinPending) socket.on('join-pending', onJoinPending);
+    if (onJoinRequestAccepted) socket.on('join-request-accepted', onJoinRequestAccepted);
+    if (onJoinRequestRejected) socket.on('join-request-rejected', onJoinRequestRejected);
+    if (onJoinRequest) socket.on('join-request', onJoinRequest);
+    if (onRemovedFromRoom) socket.on('removed-from-room', onRemovedFromRoom);
+    if (onRoomPrivacyUpdated) socket.on('room-privacy-updated', onRoomPrivacyUpdated);
+
     return () => {
       console.log('Cleaning up socket connection');
       hasJoinedRef.current = false;
@@ -214,6 +238,30 @@ export function useSocket({
     }
   };
 
+  const acceptJoinRequest = (requestId: string, socketId: string, userName: string) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('accept-join-request', { requestId, socketId, userName });
+    }
+  };
+
+  const rejectJoinRequest = (requestId: string, socketId: string) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('reject-join-request', { requestId, socketId });
+    }
+  };
+
+  const removeParticipant = (participantSocketId: string) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('remove-participant', { participantSocketId });
+    }
+  };
+
+  const toggleRoomPrivacy = (isPublic: boolean) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('toggle-room-privacy', { isPublic });
+    }
+  };
+
   return {
     isConnected,
     connectionError,
@@ -226,6 +274,10 @@ export function useSocket({
     endCall,
     sendWebRTCOffer,
     sendWebRTCAnswer,
-    sendWebRTCIceCandidate
+    sendWebRTCIceCandidate,
+    acceptJoinRequest,
+    rejectJoinRequest,
+    removeParticipant,
+    toggleRoomPrivacy
   };
 }
