@@ -734,8 +734,15 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
                   const preference = message.fileViewPreference || 'download';
                   const isViewed = viewedMessages.has(message.id);
                   const isOwn = message.sender === userName;
-                  const canView = preference === 'preview' || preference === 'one-time';
-                  const showContent = isOwn || (canView && (preference === 'preview' || (preference === 'one-time' && isViewed)));
+
+                  let showContent = false;
+                  if (isOwn) {
+                    showContent = true;
+                  } else if (preference === 'preview') {
+                    showContent = true;
+                  } else if (preference === 'one-time' && isViewed) {
+                    showContent = true;
+                  }
 
                   if (preference === 'one-time' && isViewed && !isOwn) {
                     return (
@@ -749,28 +756,41 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
                   return (
                     <div className="mt-2">
                       {showContent && message.fileContent && (
-                        <div className="mb-2 rounded-lg overflow-hidden border border-white/10 bg-black/30">
+                        <div
+                          className="mb-2 rounded-lg overflow-hidden border border-white/10 bg-black/30"
+                          onContextMenu={(e) => e.preventDefault()}
+                        >
                           {message.type === 'image' ? (
                             <img
                               src={message.fileContent}
                               alt={message.fileName}
                               className="max-w-full h-auto"
                               style={{ maxHeight: '300px', objectFit: 'contain' }}
+                              onContextMenu={(e) => e.preventDefault()}
                             />
                           ) : message.fileType?.startsWith('video/') ? (
                             <video
                               src={message.fileContent}
                               controls
+                              controlsList="nodownload"
+                              disablePictureInPicture
                               className="max-w-full h-auto"
                               style={{ maxHeight: '300px' }}
+                              onContextMenu={(e) => e.preventDefault()}
                             />
                           ) : message.fileType?.startsWith('audio/') ? (
-                            <audio src={message.fileContent} controls className="w-full" />
+                            <audio
+                              src={message.fileContent}
+                              controls
+                              controlsList="nodownload"
+                              className="w-full"
+                              onContextMenu={(e) => e.preventDefault()}
+                            />
                           ) : message.fileType === 'application/pdf' ? (
                             <div className="p-4 text-center">
                               <div className="text-sm text-slate-300 mb-2">PDF Preview</div>
                               <iframe
-                                src={message.fileContent}
+                                src={`${message.fileContent}#toolbar=0&navpanes=0`}
                                 className="w-full"
                                 style={{ height: '300px' }}
                                 title={message.fileName}
@@ -808,7 +828,7 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
                         )}
 
                         <div className="flex items-center space-x-2">
-                          {preference === 'download' && message.fileContent && (
+                          {preference === 'download' && message.fileContent && !isOwn && (
                             <button
                               onClick={() => handleDownloadFile(message)}
                               className="flex items-center space-x-1 px-3 py-1 bg-blue-500 hover:bg-blue-600 rounded text-xs transition-colors"
@@ -818,8 +838,16 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
                             </button>
                           )}
 
-                          {preference === 'preview' && (
+                          {preference === 'download' && isOwn && (
+                            <span className="text-xs text-slate-400">Download mode</span>
+                          )}
+
+                          {preference === 'preview' && !isOwn && (
                             <span className="text-xs text-green-400">Preview Only - No Downloads</span>
+                          )}
+
+                          {preference === 'preview' && isOwn && (
+                            <span className="text-xs text-green-400">Preview mode</span>
                           )}
 
                           {preference === 'one-time' && !isOwn && !isViewed && message.fileContent && (

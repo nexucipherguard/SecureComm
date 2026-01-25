@@ -1,3 +1,23 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+video::-webkit-media-controls-download-button {
+  display: none;
+}
+
+video::-webkit-media-controls-enclosure {
+  overflow: hidden;
+}
+
+video::-internal-media-controls-download-button {
+  display: none;
+}
+
+audio::-webkit-media-controls-download-button {
+  display: none;
+}
+
+audio::-internal-media-controls-download-button {
+  display: none;
+}
