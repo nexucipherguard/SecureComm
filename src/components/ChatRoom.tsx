@@ -3,7 +3,8 @@ import {
   Send, Phone, Video, Paperclip, Shield, Users,
   Settings, MoreVertical, Mic, MicOff, VideoOff,
   Download, X, Copy, CheckCircle2, LogOut, Wifi, WifiOff,
-  AlertTriangle, RefreshCw, MessageSquare, ExternalLink
+  AlertTriangle, RefreshCw, MessageSquare, ExternalLink,
+  Eye, EyeOff, Lock
 } from 'lucide-react';
 import { Message, Participant, CallState } from '../types';
 import { EncryptionManager } from '../utils/encryption';
@@ -28,6 +29,9 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
   const [linkCopied, setLinkCopied] = useState(false);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [incomingCall, setIncomingCall] = useState<{ from: string; isVideo: boolean; callerId: string } | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [showFilePreferenceModal, setShowFilePreferenceModal] = useState(false);
+  const [viewedMessages, setViewedMessages] = useState<Set<string>>(new Set());
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -144,6 +148,35 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
   }, [messages]);
 
   useEffect(() => {
+    const preventScreenshot = (e: KeyboardEvent) => {
+      if (
+        (e.key === 'PrintScreen') ||
+        (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5')) ||
+        (e.ctrlKey && e.shiftKey && e.key === 'S') ||
+        (e.metaKey && e.shiftKey && e.key === 'S')
+      ) {
+        e.preventDefault();
+        alert('Screenshots are disabled for security reasons');
+        return false;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        console.log('Window hidden - potential screenshot attempt');
+      }
+    };
+
+    document.addEventListener('keydown', preventScreenshot);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('keydown', preventScreenshot);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!localStream) return;
 
     const hasVideo = localStream.getVideoTracks().length > 0;
@@ -219,17 +252,35 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && isNameSet && isConnected) {
-      const message: Omit<Message, 'id' | 'timestamp'> = {
-        content: `Shared ${file.type.startsWith('image/') ? 'image' : 'file'}: ${file.name}`,
-        sender: userName,
-        type: file.type.startsWith('image/') ? 'image' : 'file',
-        fileName: file.name,
-        fileSize: file.size,
-        encrypted: true
-      };
-      
-      sendMessage(message);
+      setPendingFile(file);
+      setShowFilePreferenceModal(true);
     }
+    if (event.target) {
+      event.target.value = '';
+    }
+  };
+
+  const handleSendFileWithPreference = (preference: 'download' | 'preview' | 'one-time') => {
+    if (pendingFile) {
+      const message: Omit<Message, 'id' | 'timestamp'> = {
+        content: `Shared ${pendingFile.type.startsWith('image/') ? 'image' : 'file'}: ${pendingFile.name}`,
+        sender: userName,
+        type: pendingFile.type.startsWith('image/') ? 'image' : 'file',
+        fileName: pendingFile.name,
+        fileSize: pendingFile.size,
+        encrypted: true,
+        fileViewPreference: preference,
+        viewedBy: []
+      };
+
+      sendMessage(message);
+      setPendingFile(null);
+      setShowFilePreferenceModal(false);
+    }
+  };
+
+  const markMessageAsViewed = (messageId: string) => {
+    setViewedMessages(prev => new Set([...prev, messageId]));
   };
 
   const handleStartCall = async (isVideo: boolean) => {
@@ -597,8 +648,18 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
       )}
 
       {/* Messages Area */}
-      <div className="flex-1 p-4 overflow-y-auto">
-        <div className="max-w-4xl mx-auto space-y-4">
+      <div
+        className="flex-1 p-4 overflow-y-auto select-none relative"
+        onContextMenu={(e) => e.preventDefault()}
+        style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none' }}
+      >
+        {/* Security Watermark */}
+        <div className="absolute inset-0 pointer-events-none z-10 opacity-5 flex items-center justify-center">
+          <div className="text-white text-6xl font-bold transform rotate-[-45deg] select-none">
+            {userName} • {roomId.slice(0, 8)}
+          </div>
+        </div>
+        <div className="max-w-4xl mx-auto space-y-4 relative z-20">
           {messages.length === 0 && isConnected && (
             <div className="text-center py-12">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500/20 rounded-full mb-4">
@@ -630,19 +691,62 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
                 <div className="break-words leading-relaxed">
                   {message.content}
                 </div>
-                {(message.type === 'image' || message.type === 'file') && message.fileName && (
-                  <div className="mt-2 p-2 bg-black/20 rounded-lg border border-white/10">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="truncate flex-1 mr-2">{message.fileName}</span>
-                      <Download className="w-3 h-3 cursor-pointer hover:text-blue-300 transition-colors" />
-                    </div>
-                    {message.fileSize && (
-                      <div className="text-xs opacity-60 mt-1">
-                        {(message.fileSize / 1024).toFixed(1)} KB
+                {(message.type === 'image' || message.type === 'file') && message.fileName && (() => {
+                  const preference = message.fileViewPreference || 'download';
+                  const isViewed = viewedMessages.has(message.id);
+                  const isOwn = message.sender === userName;
+
+                  if (preference === 'one-time' && isViewed && !isOwn) {
+                    return (
+                      <div className="mt-2 p-3 bg-black/30 rounded-lg border border-white/10 text-center">
+                        <Lock className="w-4 h-4 mx-auto mb-1 opacity-50" />
+                        <div className="text-xs opacity-60">File has been viewed and removed</div>
                       </div>
-                    )}
-                  </div>
-                )}
+                    );
+                  }
+
+                  return (
+                    <div className="mt-2 p-2 bg-black/20 rounded-lg border border-white/10">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="truncate flex-1 mr-2">{message.fileName}</span>
+                        <div className="flex items-center space-x-2">
+                          {preference === 'one-time' && (
+                            <span className="flex items-center space-x-1 text-amber-400 text-xs">
+                              <EyeOff className="w-3 h-3" />
+                            </span>
+                          )}
+                          {preference === 'preview' && (
+                            <span className="flex items-center space-x-1 text-green-400 text-xs">
+                              <Eye className="w-3 h-3" />
+                            </span>
+                          )}
+                          {preference === 'download' && (
+                            <Download className="w-3 h-3 cursor-pointer hover:text-blue-300 transition-colors" />
+                          )}
+                          {preference === 'one-time' && !isOwn && !isViewed && (
+                            <button
+                              onClick={() => markMessageAsViewed(message.id)}
+                              className="text-amber-400 hover:text-amber-300 text-xs underline"
+                            >
+                              View
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {message.fileSize && (
+                        <div className="text-xs opacity-60 mt-1 flex items-center justify-between">
+                          <span>{(message.fileSize / 1024).toFixed(1)} KB</span>
+                          {preference === 'preview' && (
+                            <span className="text-xs text-green-400">Preview Only</span>
+                          )}
+                          {preference === 'one-time' && !isViewed && !isOwn && (
+                            <span className="text-xs text-amber-400">One-time view</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
                 <div className="text-xs opacity-50 mt-2">
                   {new Date(message.timestamp).toLocaleTimeString([], { 
                     hour: '2-digit', 
@@ -767,6 +871,74 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* File Preference Modal */}
+      {showFilePreferenceModal && pendingFile && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-white">File Sharing Options</h3>
+              <button
+                onClick={() => {
+                  setShowFilePreferenceModal(false);
+                  setPendingFile(null);
+                }}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mb-6 p-3 bg-slate-700/50 rounded-lg border border-slate-600">
+              <div className="text-sm text-slate-300 truncate">{pendingFile.name}</div>
+              <div className="text-xs text-slate-400 mt-1">
+                {(pendingFile.size / 1024).toFixed(2)} KB
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => handleSendFileWithPreference('download')}
+                className="w-full p-4 bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-blue-500 rounded-xl transition-all text-left group"
+              >
+                <div className="flex items-start space-x-3">
+                  <Download className="w-5 h-5 text-blue-400 mt-0.5" />
+                  <div>
+                    <div className="text-white font-semibold mb-1">Downloadable</div>
+                    <div className="text-sm text-slate-400">Recipients can download and save this file</div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleSendFileWithPreference('preview')}
+                className="w-full p-4 bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-green-500 rounded-xl transition-all text-left group"
+              >
+                <div className="flex items-start space-x-3">
+                  <Eye className="w-5 h-5 text-green-400 mt-0.5" />
+                  <div>
+                    <div className="text-white font-semibold mb-1">Preview Only</div>
+                    <div className="text-sm text-slate-400">Recipients can view but not download</div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleSendFileWithPreference('one-time')}
+                className="w-full p-4 bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-amber-500 rounded-xl transition-all text-left group"
+              >
+                <div className="flex items-start space-x-3">
+                  <EyeOff className="w-5 h-5 text-amber-400 mt-0.5" />
+                  <div>
+                    <div className="text-white font-semibold mb-1">One-Time View</div>
+                    <div className="text-sm text-slate-400">Self-destructs after being viewed once</div>
+                  </div>
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       )}

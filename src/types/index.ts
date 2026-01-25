@@ -7,6 +7,8 @@ export interface Message {
   fileName?: string;
   fileSize?: number;
   encrypted?: boolean;
+  fileViewPreference?: 'download' | 'preview' | 'one-time';
+  viewedBy?: string[];
 }
 
 export interface Participant {
