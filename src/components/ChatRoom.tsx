@@ -37,6 +37,8 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const localAudioRef = useRef<HTMLAudioElement>(null);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
 
   const {
     isConnected,
@@ -84,6 +86,8 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
     onCallRejected: () => {
       setCallState({ isActive: false, isVideo: false, isIncoming: false });
       setIncomingCall(null);
+      setLocalStream(null);
+      setRemoteStream(null);
       webRTCEndCall();
     },
     onCallEnded: () => {
@@ -91,6 +95,8 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
       setIncomingCall(null);
       setIsMuted(false);
       setIsVideoOff(false);
+      setLocalStream(null);
+      setRemoteStream(null);
       webRTCEndCall();
     },
     onWebRTCOffer: async (data) => {
@@ -119,43 +125,11 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
   } = useWebRTC({
     onLocalStream: (stream) => {
       console.log('Got local stream with tracks:', stream.getTracks().map(t => t.kind));
-      const hasVideo = stream.getVideoTracks().length > 0;
-      setTimeout(() => {
-        if (hasVideo && localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-          localVideoRef.current.onloadedmetadata = () => {
-            console.log('Local video metadata loaded');
-            localVideoRef.current?.play().catch(e => console.error('Error playing local video:', e));
-          };
-        }
-        if (!hasVideo && localAudioRef.current) {
-          localAudioRef.current.srcObject = stream;
-          localAudioRef.current.onloadedmetadata = () => {
-            console.log('Local audio metadata loaded');
-            localAudioRef.current?.play().catch(e => console.error('Error playing local audio:', e));
-          };
-        }
-      }, 100);
+      setLocalStream(stream);
     },
     onRemoteStream: (stream) => {
       console.log('Got remote stream with tracks:', stream.getTracks().map(t => t.kind));
-      const hasVideo = stream.getVideoTracks().length > 0;
-      setTimeout(() => {
-        if (hasVideo && remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = stream;
-          remoteVideoRef.current.onloadedmetadata = () => {
-            console.log('Remote video metadata loaded');
-            remoteVideoRef.current?.play().catch(e => console.error('Error playing remote video:', e));
-          };
-        }
-        if (!hasVideo && remoteAudioRef.current) {
-          remoteAudioRef.current.srcObject = stream;
-          remoteAudioRef.current.onloadedmetadata = () => {
-            console.log('Remote audio metadata loaded');
-            remoteAudioRef.current?.play().catch(e => console.error('Error playing remote audio:', e));
-          };
-        }
-      }, 100);
+      setRemoteStream(stream);
     },
     onConnectionStateChange: (state) => {
       console.log('WebRTC connection state:', state);
@@ -168,6 +142,37 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (!localStream) return;
+
+    const hasVideo = localStream.getVideoTracks().length > 0;
+    console.log('Attaching local stream, hasVideo:', hasVideo);
+
+    if (hasVideo && localVideoRef.current) {
+      localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.play().catch(e => console.error('Error playing local video:', e));
+    } else if (!hasVideo && localAudioRef.current) {
+      localAudioRef.current.srcObject = localStream;
+      localAudioRef.current.play().catch(e => console.error('Error playing local audio:', e));
+    }
+  }, [localStream, callState.isVideo]);
+
+  useEffect(() => {
+    if (!remoteStream) return;
+
+    const hasVideo = remoteStream.getVideoTracks().length > 0;
+    console.log('Attaching remote stream, hasVideo:', hasVideo);
+
+    if (hasVideo && remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.play().catch(e => console.error('Error playing remote video:', e));
+    } else if (!hasVideo && remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = remoteStream;
+      remoteAudioRef.current.volume = 1.0;
+      remoteAudioRef.current.play().catch(e => console.error('Error playing remote audio:', e));
+    }
+  }, [remoteStream, callState.isVideo]);
 
   const handleSetName = () => {
     if (userName.trim()) {
@@ -280,6 +285,8 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
     setCallState({ isActive: false, isVideo: false, isIncoming: false });
     setIsMuted(false);
     setIsVideoOff(false);
+    setLocalStream(null);
+    setRemoteStream(null);
   };
 
   const handleToggleMute = () => {
@@ -582,8 +589,8 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
                 </div>
               </div>
 
-              <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
-              <audio ref={localAudioRef} autoPlay playsInline muted className="hidden" />
+              <audio ref={remoteAudioRef} autoPlay playsInline style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }} />
+              <audio ref={localAudioRef} autoPlay playsInline muted style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }} />
             </div>
           )}
         </div>
