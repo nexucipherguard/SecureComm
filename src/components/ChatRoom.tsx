@@ -578,49 +578,61 @@ export default function ChatRoom({ roomId, onLeave, isHost: initialIsHost = fals
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col">
       {/* Header */}
-      <div className="bg-slate-800/50 backdrop-blur-md border-b border-slate-700/50 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
-              <span className="text-white font-semibold">SecureComm Chat</span>
-              {!isConnected && <WifiOff className="w-4 h-4 text-red-400" />}
+      <div className="bg-slate-800/50 backdrop-blur-md border-b border-slate-700/50 p-3 md:p-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
+              <span className="text-white font-semibold text-sm md:text-base whitespace-nowrap">SecureComm Chat</span>
+              {!isConnected && <WifiOff className="w-4 h-4 text-red-400 flex-shrink-0" />}
             </div>
-            <div className="flex items-center space-x-2 text-sm text-slate-400">
-              <Shield className="w-4 h-4" />
-              <span>E2E Encrypted</span>
-              <span className="text-xs">({encryptionManager.getKeyFingerprint()})</span>
+            <div className="hidden lg:flex items-center gap-2 text-sm text-slate-400">
+              <Shield className="w-4 h-4 flex-shrink-0" />
+              <span className="whitespace-nowrap">E2E Encrypted</span>
+              <span className="text-xs truncate">({encryptionManager.getKeyFingerprint()})</span>
             </div>
-            <div className="text-xs text-slate-500">
+            <div className="hidden md:block text-xs text-slate-500 truncate">
               Room: <span className="font-mono text-blue-400">{roomId}</span>
             </div>
           </div>
-          
-          <div className="flex items-center space-x-2">
+
+          <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
             <button
               onClick={copyRoomLink}
-              className="flex items-center space-x-1 px-3 py-2 bg-slate-700/50 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+              className="flex items-center gap-1 px-2 py-2 md:px-3 bg-slate-700/50 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
               title="Copy room link to share with others"
             >
               {linkCopied ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-              <span className="text-sm">{linkCopied ? 'Copied!' : 'Share Link'}</span>
+              <span className="text-sm hidden sm:inline">{linkCopied ? 'Copied!' : 'Share'}</span>
             </button>
-            
+
             <button
               onClick={() => setShowParticipants(!showParticipants)}
-              className="flex items-center space-x-1 px-3 py-2 bg-slate-700/50 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+              className="flex items-center gap-1 px-2 py-2 md:px-3 bg-slate-700/50 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
             >
               <Users className="w-4 h-4" />
               <span className="text-sm">{participants.length}</span>
             </button>
-            
+
             <button
               onClick={handleLeave}
-              className="flex items-center space-x-1 px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors"
+              className="flex items-center gap-1 px-2 py-2 md:px-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors"
             >
               <LogOut className="w-4 h-4" />
-              <span className="text-sm">Leave</span>
+              <span className="text-sm hidden sm:inline">Leave</span>
             </button>
+          </div>
+        </div>
+
+        {/* Mobile-only second row for additional info */}
+        <div className="flex md:hidden items-center justify-between mt-2 pt-2 border-t border-slate-700/30">
+          <div className="flex items-center gap-2 text-xs text-slate-400 min-w-0">
+            <Shield className="w-3 h-3 flex-shrink-0" />
+            <span className="whitespace-nowrap">E2E Encrypted</span>
+            <span className="text-xs truncate">({encryptionManager.getKeyFingerprint()})</span>
+          </div>
+          <div className="text-xs text-slate-500 truncate ml-2">
+            <span className="font-mono text-blue-400">{roomId}</span>
           </div>
         </div>
       </div>
@@ -691,24 +703,24 @@ export default function ChatRoom({ roomId, onLeave, isHost: initialIsHost = fals
 
       {/* Incoming Call Modal */}
       {incomingCall && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700 max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl p-6 md:p-8 border border-slate-700 max-w-md w-full">
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/20 rounded-full mb-4">
-                {incomingCall.isVideo ? <Video className="w-8 h-8 text-green-400" /> : <Phone className="w-8 h-8 text-green-400" />}
+              <div className="inline-flex items-center justify-center w-12 h-12 md:w-16 md:h-16 bg-green-500/20 rounded-full mb-4">
+                {incomingCall.isVideo ? <Video className="w-6 h-6 md:w-8 md:h-8 text-green-400" /> : <Phone className="w-6 h-6 md:w-8 md:h-8 text-green-400" />}
               </div>
-              <h3 className="text-xl font-semibold text-white mb-2">Incoming {incomingCall.isVideo ? 'Video' : 'Voice'} Call</h3>
-              <p className="text-slate-300 mb-8">From: {incomingCall.from}</p>
-              <div className="flex space-x-4">
+              <h3 className="text-lg md:text-xl font-semibold text-white mb-2">Incoming {incomingCall.isVideo ? 'Video' : 'Voice'} Call</h3>
+              <p className="text-slate-300 mb-6 md:mb-8">From: {incomingCall.from}</p>
+              <div className="flex gap-3 md:gap-4">
                 <button
                   onClick={handleRejectCall}
-                  className="flex-1 bg-red-500 hover:bg-red-600 text-white py-3 px-6 rounded-xl font-semibold transition-colors"
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2.5 md:py-3 px-4 md:px-6 rounded-xl font-semibold transition-colors text-sm md:text-base"
                 >
                   Decline
                 </button>
                 <button
                   onClick={handleAcceptCall}
-                  className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-xl font-semibold transition-colors"
+                  className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2.5 md:py-3 px-4 md:px-6 rounded-xl font-semibold transition-colors text-sm md:text-base"
                 >
                   Accept
                 </button>
@@ -735,76 +747,76 @@ export default function ChatRoom({ roomId, onLeave, isHost: initialIsHost = fals
                 autoPlay
                 playsInline
                 muted
-                className="absolute bottom-20 right-4 w-48 h-36 object-cover rounded-xl border-2 border-white/20 shadow-2xl bg-slate-800"
+                className="absolute bottom-16 md:bottom-20 right-2 md:right-4 w-24 h-32 md:w-48 md:h-36 object-cover rounded-lg md:rounded-xl border-2 border-white/20 shadow-2xl bg-slate-800"
               />
 
-              <div className="absolute top-6 left-1/2 transform -translate-x-1/2 flex items-center space-x-2 bg-black/60 backdrop-blur-lg px-4 py-2 rounded-full">
+              <div className="absolute top-4 md:top-6 left-1/2 transform -translate-x-1/2 flex items-center gap-2 bg-black/60 backdrop-blur-lg px-3 md:px-4 py-1.5 md:py-2 rounded-full">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-white text-sm font-medium">Video Call</span>
+                <span className="text-white text-xs md:text-sm font-medium">Video Call</span>
               </div>
 
-              <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex items-center space-x-4 bg-black/60 backdrop-blur-lg px-8 py-4 rounded-full">
+              <div className="absolute bottom-6 md:bottom-8 left-1/2 transform -translate-x-1/2 flex items-center gap-2 md:gap-4 bg-black/60 backdrop-blur-lg px-4 md:px-8 py-3 md:py-4 rounded-full">
                 <button
                   onClick={handleToggleMute}
-                  className={`p-4 rounded-full transition-all ${
+                  className={`p-3 md:p-4 rounded-full transition-all ${
                     isMuted ? 'bg-red-500 text-white' : 'bg-white/20 text-white hover:bg-white/30'
                   }`}
                   title={isMuted ? 'Unmute' : 'Mute'}
                 >
-                  {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                  {isMuted ? <MicOff className="w-5 h-5 md:w-6 md:h-6" /> : <Mic className="w-5 h-5 md:w-6 md:h-6" />}
                 </button>
                 <button
                   onClick={handleToggleVideo}
-                  className={`p-4 rounded-full transition-all ${
+                  className={`p-3 md:p-4 rounded-full transition-all ${
                     isVideoOff ? 'bg-red-500 text-white' : 'bg-white/20 text-white hover:bg-white/30'
                   }`}
                   title={isVideoOff ? 'Turn on camera' : 'Turn off camera'}
                 >
-                  {isVideoOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
+                  {isVideoOff ? <VideoOff className="w-5 h-5 md:w-6 md:h-6" /> : <Video className="w-5 h-5 md:w-6 md:h-6" />}
                 </button>
                 <button
                   onClick={handleEndCall}
-                  className="p-4 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+                  className="p-3 md:p-4 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
                   title="End call"
                 >
-                  <X className="w-6 h-6" />
+                  <X className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
               </div>
             </div>
           ) : (
-            <div className="relative flex-1 flex flex-col items-center justify-center">
-              <div className="flex flex-col items-center space-y-8">
+            <div className="relative flex-1 flex flex-col items-center justify-center p-4">
+              <div className="flex flex-col items-center space-y-6 md:space-y-8">
                 <div className="relative">
-                  <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-                    <Phone className="w-16 h-16 text-white" />
+                  <div className="w-24 h-24 md:w-32 md:h-32 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                    <Phone className="w-12 h-12 md:w-16 md:h-16 text-white" />
                   </div>
                   <div className="absolute inset-0 bg-blue-400 rounded-full animate-ping opacity-20"></div>
                 </div>
 
                 <div className="text-center">
-                  <h3 className="text-3xl font-bold text-white mb-2">Voice Call</h3>
-                  <div className="flex items-center justify-center space-x-2">
+                  <h3 className="text-2xl md:text-3xl font-bold text-white mb-2">Voice Call</h3>
+                  <div className="flex items-center justify-center gap-2">
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <p className="text-slate-300 text-lg">Connected</p>
+                    <p className="text-slate-300 text-base md:text-lg">Connected</p>
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-4 mt-12">
+                <div className="flex items-center gap-3 md:gap-4 mt-8 md:mt-12">
                   <button
                     onClick={handleToggleMute}
-                    className={`p-5 rounded-full transition-all ${
+                    className={`p-4 md:p-5 rounded-full transition-all ${
                       isMuted ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'
                     }`}
                     title={isMuted ? 'Unmute' : 'Mute'}
                   >
-                    {isMuted ? <MicOff className="w-7 h-7" /> : <Mic className="w-7 h-7" />}
+                    {isMuted ? <MicOff className="w-6 h-6 md:w-7 md:h-7" /> : <Mic className="w-6 h-6 md:w-7 md:h-7" />}
                   </button>
                   <button
                     onClick={handleEndCall}
-                    className="p-5 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+                    className="p-4 md:p-5 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
                     title="End call"
                   >
-                    <X className="w-7 h-7" />
+                    <X className="w-6 h-6 md:w-7 md:h-7" />
                   </button>
                 </div>
               </div>
@@ -818,25 +830,25 @@ export default function ChatRoom({ roomId, onLeave, isHost: initialIsHost = fals
 
       {/* Messages Area */}
       <div
-        className="flex-1 p-4 overflow-y-auto select-none relative"
+        className="flex-1 p-3 md:p-4 overflow-y-auto select-none relative"
         onContextMenu={(e) => e.preventDefault()}
         style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none' }}
       >
         {/* Security Watermark */}
         <div className="absolute inset-0 pointer-events-none z-10 opacity-5 flex items-center justify-center">
-          <div className="text-white text-6xl font-bold transform rotate-[-45deg] select-none">
+          <div className="text-white text-3xl md:text-6xl font-bold transform rotate-[-45deg] select-none">
             {userName} • {roomId.slice(0, 8)}
           </div>
         </div>
-        <div className="max-w-4xl mx-auto space-y-4 relative z-20">
+        <div className="max-w-4xl mx-auto space-y-3 md:space-y-4 relative z-20">
           {messages.length === 0 && isConnected && (
-            <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500/20 rounded-full mb-4">
-                <MessageSquare className="w-8 h-8 text-blue-400" />
+            <div className="text-center py-8 md:py-12 px-4">
+              <div className="inline-flex items-center justify-center w-12 h-12 md:w-16 md:h-16 bg-blue-500/20 rounded-full mb-4">
+                <MessageSquare className="w-6 h-6 md:w-8 md:h-8 text-blue-400" />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-2">Welcome to SecureComm Chat</h3>
-              <p className="text-slate-400">Your messages are end-to-end encrypted and secure.</p>
-              <p className="text-slate-500 text-sm mt-2">Start typing to begin the conversation...</p>
+              <h3 className="text-lg md:text-xl font-semibold text-white mb-2">Welcome to SecureComm Chat</h3>
+              <p className="text-sm md:text-base text-slate-400">Your messages are end-to-end encrypted and secure.</p>
+              <p className="text-slate-500 text-xs md:text-sm mt-2">Start typing to begin the conversation...</p>
             </div>
           )}
           
@@ -846,9 +858,9 @@ export default function ChatRoom({ roomId, onLeave, isHost: initialIsHost = fals
               className={`flex ${message.sender === userName ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-lg ${
+                className={`max-w-[85%] sm:max-w-xs lg:max-w-md px-3 py-2.5 md:px-4 md:py-3 rounded-2xl shadow-lg ${
                   message.type === 'system'
-                    ? 'bg-blue-500/20 text-blue-300 text-center text-sm border border-blue-500/30'
+                    ? 'bg-blue-500/20 text-blue-300 text-center text-xs md:text-sm border border-blue-500/30'
                     : message.sender === userName
                     ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
                     : 'bg-slate-700 text-white border border-slate-600'
@@ -857,7 +869,7 @@ export default function ChatRoom({ roomId, onLeave, isHost: initialIsHost = fals
                 {message.type !== 'system' && (
                   <div className="text-xs opacity-70 mb-1 font-medium">{message.sender}</div>
                 )}
-                <div className="break-words leading-relaxed">
+                <div className="break-words leading-relaxed text-sm md:text-base">
                   {message.content}
                 </div>
                 {(message.type === 'image' || message.type === 'video' || message.type === 'file') && message.fileName && (() => {
@@ -1039,39 +1051,39 @@ export default function ChatRoom({ roomId, onLeave, isHost: initialIsHost = fals
       </div>
 
       {/* Input Area */}
-      <div className="bg-slate-800/50 backdrop-blur-md border-t border-slate-700/50 p-4">
+      <div className="bg-slate-800/50 backdrop-blur-md border-t border-slate-700/50 p-3 md:p-4">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-2 md:gap-4">
             {/* Call Buttons */}
-            <div className="flex space-x-2">
+            <div className="flex gap-1.5 md:gap-2 flex-shrink-0">
               <button
                 onClick={() => handleStartCall(false)}
                 disabled={callState.isActive || !isConnected || joinStatus === 'pending' || joinStatus === 'rejected'}
-                className="p-3 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2.5 md:p-3 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Start voice call"
               >
-                <Phone className="w-5 h-5" />
+                <Phone className="w-4 h-4 md:w-5 md:h-5" />
               </button>
               <button
                 onClick={() => handleStartCall(true)}
                 disabled={callState.isActive || !isConnected || joinStatus === 'pending' || joinStatus === 'rejected'}
-                className="p-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2.5 md:p-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Start video call"
               >
-                <Video className="w-5 h-5" />
+                <Video className="w-4 h-4 md:w-5 md:h-5" />
               </button>
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={!isConnected || joinStatus === 'pending' || joinStatus === 'rejected'}
-                className="p-3 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2.5 md:p-3 bg-slate-500/20 hover:bg-slate-500/30 text-slate-400 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Share file"
               >
-                <Paperclip className="w-5 h-5" />
+                <Paperclip className="w-4 h-4 md:w-5 md:h-5" />
               </button>
             </div>
 
             {/* Message Input */}
-            <div className="flex-1 flex items-center space-x-3">
+            <div className="flex-1 flex items-center gap-2 md:gap-3 min-w-0">
               <input
                 type="text"
                 value={newMessage}
@@ -1085,17 +1097,17 @@ export default function ChatRoom({ roomId, onLeave, isHost: initialIsHost = fals
                     ? "Type an encrypted message..."
                     : "Connecting..."
                 }
-                className="flex-1 bg-slate-700/50 border border-slate-600 rounded-full px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 transition-all disabled:opacity-50"
+                className="flex-1 bg-slate-700/50 border border-slate-600 rounded-full px-3 py-2.5 md:px-4 md:py-3 text-sm md:text-base text-white placeholder-slate-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 transition-all disabled:opacity-50"
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 disabled={!isConnected || joinStatus === 'pending' || joinStatus === 'rejected'}
               />
               <button
                 onClick={handleSendMessage}
                 disabled={!newMessage.trim() || !isConnected || joinStatus === 'pending' || joinStatus === 'rejected'}
-                className="p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-blue-500/25"
+                className="p-2.5 md:p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-blue-500/25 flex-shrink-0"
                 title="Send message"
               >
-                <Send className="w-5 h-5" />
+                <Send className="w-4 h-4 md:w-5 md:h-5" />
               </button>
             </div>
           </div>
@@ -1113,14 +1125,14 @@ export default function ChatRoom({ roomId, onLeave, isHost: initialIsHost = fals
 
       {/* Participants Sidebar */}
       {showParticipants && (
-        <div className="fixed right-0 top-0 h-full w-80 bg-slate-800/95 backdrop-blur-md border-l border-slate-700 p-4 z-50 overflow-y-auto">
+        <div className="fixed inset-0 md:right-0 md:left-auto md:top-0 h-full w-full md:w-80 bg-slate-800/95 backdrop-blur-md md:border-l border-slate-700 p-4 z-50 overflow-y-auto">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-white font-semibold">Participants ({participants.length})</h3>
+            <h3 className="text-white font-semibold text-lg md:text-base">Participants ({participants.length})</h3>
             <button
               onClick={() => setShowParticipants(false)}
               className="text-slate-400 hover:text-white transition-colors"
             >
-              <X className="w-5 h-5" />
+              <X className="w-6 h-6 md:w-5 md:h-5" />
             </button>
           </div>
 
@@ -1164,10 +1176,10 @@ export default function ChatRoom({ roomId, onLeave, isHost: initialIsHost = fals
 
       {/* File Preference Modal */}
       {showFilePreferenceModal && pendingFile && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 max-w-md w-full shadow-2xl">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-3 md:p-4">
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 p-4 md:p-6 max-w-md w-full shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-white">File Sharing Options</h3>
+              <h3 className="text-lg md:text-xl font-bold text-white">File Sharing Options</h3>
               <button
                 onClick={() => {
                   setShowFilePreferenceModal(false);
@@ -1175,53 +1187,53 @@ export default function ChatRoom({ roomId, onLeave, isHost: initialIsHost = fals
                 }}
                 className="text-slate-400 hover:text-white transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 md:w-6 md:h-6" />
               </button>
             </div>
 
-            <div className="mb-6 p-3 bg-slate-700/50 rounded-lg border border-slate-600">
+            <div className="mb-4 md:mb-6 p-3 bg-slate-700/50 rounded-lg border border-slate-600">
               <div className="text-sm text-slate-300 truncate">{pendingFile.name}</div>
               <div className="text-xs text-slate-400 mt-1">
                 {(pendingFile.size / 1024).toFixed(2)} KB
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2.5 md:space-y-3">
               <button
                 onClick={() => handleSendFileWithPreference('download')}
-                className="w-full p-4 bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-blue-500 rounded-xl transition-all text-left group"
+                className="w-full p-3 md:p-4 bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-blue-500 rounded-xl transition-all text-left group"
               >
-                <div className="flex items-start space-x-3">
-                  <Download className="w-5 h-5 text-blue-400 mt-0.5" />
-                  <div>
-                    <div className="text-white font-semibold mb-1">Downloadable</div>
-                    <div className="text-sm text-slate-400">Recipients can download and save this file</div>
+                <div className="flex items-start gap-3">
+                  <Download className="w-4 h-4 md:w-5 md:h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-white font-semibold mb-0.5 md:mb-1 text-sm md:text-base">Downloadable</div>
+                    <div className="text-xs md:text-sm text-slate-400">Recipients can download and save this file</div>
                   </div>
                 </div>
               </button>
 
               <button
                 onClick={() => handleSendFileWithPreference('preview')}
-                className="w-full p-4 bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-green-500 rounded-xl transition-all text-left group"
+                className="w-full p-3 md:p-4 bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-green-500 rounded-xl transition-all text-left group"
               >
-                <div className="flex items-start space-x-3">
-                  <Eye className="w-5 h-5 text-green-400 mt-0.5" />
-                  <div>
-                    <div className="text-white font-semibold mb-1">Preview Only</div>
-                    <div className="text-sm text-slate-400">Recipients can view but not download</div>
+                <div className="flex items-start gap-3">
+                  <Eye className="w-4 h-4 md:w-5 md:h-5 text-green-400 mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-white font-semibold mb-0.5 md:mb-1 text-sm md:text-base">Preview Only</div>
+                    <div className="text-xs md:text-sm text-slate-400">Recipients can view but not download</div>
                   </div>
                 </div>
               </button>
 
               <button
                 onClick={() => handleSendFileWithPreference('one-time')}
-                className="w-full p-4 bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-amber-500 rounded-xl transition-all text-left group"
+                className="w-full p-3 md:p-4 bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-amber-500 rounded-xl transition-all text-left group"
               >
-                <div className="flex items-start space-x-3">
-                  <EyeOff className="w-5 h-5 text-amber-400 mt-0.5" />
-                  <div>
-                    <div className="text-white font-semibold mb-1">One-Time View</div>
-                    <div className="text-sm text-slate-400">Self-destructs after being viewed once</div>
+                <div className="flex items-start gap-3">
+                  <EyeOff className="w-4 h-4 md:w-5 md:h-5 text-amber-400 mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-white font-semibold mb-0.5 md:mb-1 text-sm md:text-base">One-Time View</div>
+                    <div className="text-xs md:text-sm text-slate-400">Self-destructs after being viewed once</div>
                   </div>
                 </div>
               </button>
