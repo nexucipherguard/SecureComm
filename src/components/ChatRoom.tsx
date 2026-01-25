@@ -155,6 +155,11 @@ export default function ChatRoom({ roomId, onLeave, isHost: initialIsHost = fals
     },
     onRoomPrivacyUpdated: (data) => {
       setIsPublic(data.isPublic);
+    },
+    onRoomJoined: (data) => {
+      setIsHost(data.isHost);
+      setIsPublic(data.isPublic);
+      setJoinStatus(null);
     }
   });
 

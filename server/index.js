@@ -467,8 +467,19 @@ io.on('connection', (socket) => {
           isHost: false
         });
 
-        // Notify the requester
-        io.to(socketId).emit('join-request-accepted', { roomId: userInfo.roomId });
+        // Get the requester's socket and join them to the room
+        const requesterSocket = io.sockets.sockets.get(socketId);
+        if (requesterSocket) {
+          requesterSocket.join(userInfo.roomId);
+
+          // Send room data to the accepted user
+          requesterSocket.emit('room-joined', {
+            roomId: userInfo.roomId,
+            isHost: false,
+            isPublic: false
+          });
+          requesterSocket.emit('room-messages', room.messages);
+        }
 
         // Notify all participants
         const participantsList = Array.from(room.participants.values());

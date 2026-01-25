@@ -23,6 +23,7 @@ interface UseSocketProps {
   onJoinRequest?: (data: { requestId: string; userName: string; socketId: string; requestedAt: string }) => void;
   onRemovedFromRoom?: (data: { message: string }) => void;
   onRoomPrivacyUpdated?: (data: { isPublic: boolean }) => void;
+  onRoomJoined?: (data: { roomId: string; isHost: boolean; isPublic: boolean }) => void;
 }
 
 export function useSocket({
@@ -45,7 +46,8 @@ export function useSocket({
   onJoinRequestRejected,
   onJoinRequest,
   onRemovedFromRoom,
-  onRoomPrivacyUpdated
+  onRoomPrivacyUpdated,
+  onRoomJoined
 }: UseSocketProps) {
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -170,6 +172,7 @@ export function useSocket({
     if (onJoinRequest) socket.on('join-request', onJoinRequest);
     if (onRemovedFromRoom) socket.on('removed-from-room', onRemovedFromRoom);
     if (onRoomPrivacyUpdated) socket.on('room-privacy-updated', onRoomPrivacyUpdated);
+    if (onRoomJoined) socket.on('room-joined', onRoomJoined);
 
     return () => {
       console.log('Cleaning up socket connection');
