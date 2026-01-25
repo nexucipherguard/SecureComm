@@ -62,7 +62,7 @@ export default function Landing({ onCreateRoom, onJoinRoom }: LandingProps) {
         <div className="text-center mb-16">
           <div className="flex items-center justify-center mb-6">
             <div className="p-3 bg-blue-500/20 rounded-full backdrop-blur-sm border border-blue-500/30">
-              <img src="https://nexuscipherguard.in/logo.png" alt="Logo" className="w-9 h-7" />
+              <img src="https://nexuscipherguard.in/logo.png" alt="Logo" className="w-9 h-8" />
             </div>
           </div>
           <h1 className="text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
