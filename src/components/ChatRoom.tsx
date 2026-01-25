@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Send, Phone, Video, Paperclip, Shield, Users, 
+import {
+  Send, Phone, Video, Paperclip, Shield, Users,
   Settings, MoreVertical, Mic, MicOff, VideoOff,
   Download, X, Copy, CheckCircle2, LogOut, Wifi, WifiOff,
   AlertTriangle, RefreshCw, MessageSquare, ExternalLink
@@ -8,6 +8,7 @@ import {
 import { Message, Participant, CallState } from '../types';
 import { EncryptionManager } from '../utils/encryption';
 import { useSocket } from '../hooks/useSocket';
+import { useWebRTC } from '../hooks/useWebRTC';
 
 interface ChatRoomProps {
   roomId: string;
@@ -32,6 +33,8 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const encryptionManager = EncryptionManager.getInstance();
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
   const {
     isConnected,
@@ -42,7 +45,10 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
     startCall: socketStartCall,
     acceptCall,
     rejectCall,
-    endCall: socketEndCall
+    endCall: socketEndCall,
+    sendWebRTCOffer,
+    sendWebRTCAnswer,
+    sendWebRTCIceCandidate
   } = useSocket({
     roomId,
     userName: isNameSet ? userName : '', // Only pass userName when it's actually set
@@ -68,20 +74,65 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
     onIncomingCall: (callData) => {
       setIncomingCall(callData);
     },
-    onCallAccepted: () => {
+    onCallAccepted: async (data) => {
+      console.log('Call accepted, starting WebRTC connection');
       setCallState(prev => ({ ...prev, isActive: true }));
       setIncomingCall(null);
     },
     onCallRejected: () => {
       setCallState({ isActive: false, isVideo: false, isIncoming: false });
       setIncomingCall(null);
+      webRTCEndCall();
     },
     onCallEnded: () => {
       setCallState({ isActive: false, isVideo: false, isIncoming: false });
       setIncomingCall(null);
       setIsMuted(false);
       setIsVideoOff(false);
+      webRTCEndCall();
+    },
+    onWebRTCOffer: async (data) => {
+      console.log('Received WebRTC offer');
+      await handleWebRTCOffer(data.offer, data.callerId);
+    },
+    onWebRTCAnswer: async (data) => {
+      console.log('Received WebRTC answer');
+      await handleWebRTCAnswer(data.answer);
+    },
+    onWebRTCIceCandidate: async (data) => {
+      console.log('Received ICE candidate');
+      await handleWebRTCIceCandidate(data.candidate);
     }
+  });
+
+  const {
+    startCall: webRTCStartCall,
+    answerCall: webRTCAnswerCall,
+    handleOffer: handleWebRTCOffer,
+    handleAnswer: handleWebRTCAnswer,
+    handleIceCandidate: handleWebRTCIceCandidate,
+    toggleAudio: webRTCToggleAudio,
+    toggleVideo: webRTCToggleVideo,
+    endCall: webRTCEndCall
+  } = useWebRTC({
+    onLocalStream: (stream) => {
+      console.log('Got local stream');
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+    },
+    onRemoteStream: (stream) => {
+      console.log('Got remote stream');
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = stream;
+      }
+    },
+    onConnectionStateChange: (state) => {
+      console.log('WebRTC connection state:', state);
+    },
+    sendOffer: sendWebRTCOffer,
+    sendAnswer: sendWebRTCAnswer,
+    sendIceCandidate: sendWebRTCIceCandidate
   });
 
   useEffect(() => {
@@ -146,17 +197,41 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
     }
   };
 
-  const handleStartCall = (isVideo: boolean) => {
-    if (isConnected) {
-      setCallState({ isActive: false, isVideo, isIncoming: false });
-      socketStartCall(isVideo);
+  const handleStartCall = async (isVideo: boolean) => {
+    if (isConnected && incomingCall === null) {
+      try {
+        const otherParticipants = participants.filter(p => p.name !== userName);
+        if (otherParticipants.length === 0) {
+          alert('No other participants in the room');
+          return;
+        }
+
+        const targetId = otherParticipants[0].id;
+        setCallState({ isActive: false, isVideo, isIncoming: false });
+        socketStartCall(isVideo);
+
+        await webRTCStartCall(isVideo, targetId);
+      } catch (error) {
+        console.error('Error starting call:', error);
+        alert('Failed to start call. Please check camera/microphone permissions.');
+        setCallState({ isActive: false, isVideo: false, isIncoming: false });
+      }
     }
   };
 
-  const handleAcceptCall = () => {
+  const handleAcceptCall = async () => {
     if (incomingCall) {
-      acceptCall(incomingCall.callerId);
-      setCallState({ isActive: true, isVideo: incomingCall.isVideo, isIncoming: true });
+      try {
+        acceptCall(incomingCall.callerId);
+        setCallState({ isActive: true, isVideo: incomingCall.isVideo, isIncoming: true });
+
+        await webRTCAnswerCall(incomingCall.isVideo, incomingCall.callerId);
+      } catch (error) {
+        console.error('Error accepting call:', error);
+        alert('Failed to accept call. Please check camera/microphone permissions.');
+        setCallState({ isActive: false, isVideo: false, isIncoming: false });
+        setIncomingCall(null);
+      }
     }
   };
 
@@ -169,9 +244,20 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
 
   const handleEndCall = () => {
     socketEndCall();
+    webRTCEndCall();
     setCallState({ isActive: false, isVideo: false, isIncoming: false });
     setIsMuted(false);
     setIsVideoOff(false);
+  };
+
+  const handleToggleMute = () => {
+    const muted = webRTCToggleAudio();
+    setIsMuted(muted);
+  };
+
+  const handleToggleVideo = () => {
+    const videoOff = webRTCToggleVideo();
+    setIsVideoOff(videoOff);
   };
 
   const copyRoomLink = () => {
@@ -375,38 +461,57 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
 
       {/* Call Interface */}
       {callState.isActive && (
-        <div className="bg-slate-800 p-4 border-b border-slate-700">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+        <div className="fixed inset-0 bg-black z-40 flex flex-col">
+          <div className="relative flex-1 flex items-center justify-center">
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full object-cover"
+            />
+
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="absolute bottom-4 right-4 w-48 h-36 object-cover rounded-lg border-2 border-slate-600 shadow-lg"
+            />
+
+            <div className="absolute top-4 left-4 flex items-center space-x-3 bg-slate-900/80 backdrop-blur-sm px-4 py-2 rounded-lg">
               <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-white">
+              <span className="text-white font-medium">
                 {callState.isVideo ? 'Video Call' : 'Voice Call'} in progress
               </span>
             </div>
-            <div className="flex items-center space-x-2">
+
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex items-center space-x-3 bg-slate-900/80 backdrop-blur-sm px-6 py-3 rounded-full">
               <button
-                onClick={() => setIsMuted(!isMuted)}
-                className={`p-2 rounded-full transition-colors ${
+                onClick={handleToggleMute}
+                className={`p-3 rounded-full transition-colors ${
                   isMuted ? 'bg-red-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                 }`}
+                title={isMuted ? 'Unmute' : 'Mute'}
               >
-                {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
               </button>
               {callState.isVideo && (
                 <button
-                  onClick={() => setIsVideoOff(!isVideoOff)}
-                  className={`p-2 rounded-full transition-colors ${
+                  onClick={handleToggleVideo}
+                  className={`p-3 rounded-full transition-colors ${
                     isVideoOff ? 'bg-red-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                   }`}
+                  title={isVideoOff ? 'Turn on camera' : 'Turn off camera'}
                 >
-                  {isVideoOff ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
+                  {isVideoOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
                 </button>
               )}
               <button
                 onClick={handleEndCall}
-                className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+                className="p-3 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+                title="End call"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
           </div>

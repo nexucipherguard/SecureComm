@@ -12,6 +12,9 @@ interface UseSocketProps {
   onCallAccepted: (data: { accepterId: string }) => void;
   onCallRejected: () => void;
   onCallEnded: () => void;
+  onWebRTCOffer?: (data: { offer: RTCSessionDescriptionInit; callerId: string }) => void;
+  onWebRTCAnswer?: (data: { answer: RTCSessionDescriptionInit; accepterId: string }) => void;
+  onWebRTCIceCandidate?: (data: { candidate: RTCIceCandidateInit; senderId: string }) => void;
 }
 
 export function useSocket({
@@ -23,7 +26,10 @@ export function useSocket({
   onIncomingCall,
   onCallAccepted,
   onCallRejected,
-  onCallEnded
+  onCallEnded,
+  onWebRTCOffer,
+  onWebRTCAnswer,
+  onWebRTCIceCandidate
 }: UseSocketProps) {
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -136,6 +142,11 @@ export function useSocket({
     socket.on('call-rejected', onCallRejected);
     socket.on('call-ended', onCallEnded);
 
+    // WebRTC signaling events
+    if (onWebRTCOffer) socket.on('webrtc-offer', onWebRTCOffer);
+    if (onWebRTCAnswer) socket.on('webrtc-answer', onWebRTCAnswer);
+    if (onWebRTCIceCandidate) socket.on('webrtc-ice-candidate', onWebRTCIceCandidate);
+
     return () => {
       console.log('Cleaning up socket connection');
       hasJoinedRef.current = false;
@@ -185,6 +196,24 @@ export function useSocket({
     }
   };
 
+  const sendWebRTCOffer = (offer: RTCSessionDescriptionInit, targetId: string) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('webrtc-offer', { offer, targetId });
+    }
+  };
+
+  const sendWebRTCAnswer = (answer: RTCSessionDescriptionInit, targetId: string) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('webrtc-answer', { answer, targetId });
+    }
+  };
+
+  const sendWebRTCIceCandidate = (candidate: RTCIceCandidateInit, targetId: string) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('webrtc-ice-candidate', { candidate, targetId });
+    }
+  };
+
   return {
     isConnected,
     connectionError,
@@ -194,6 +223,9 @@ export function useSocket({
     startCall,
     acceptCall,
     rejectCall,
-    endCall
+    endCall,
+    sendWebRTCOffer,
+    sendWebRTCAnswer,
+    sendWebRTCIceCandidate
   };
 }
