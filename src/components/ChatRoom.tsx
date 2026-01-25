@@ -625,6 +625,40 @@ export default function ChatRoom({ roomId, onLeave, isHost: initialIsHost = fals
         </div>
       </div>
 
+      {/* Join Status Banner */}
+      {joinStatus === 'pending' && (
+        <div className="bg-amber-500/20 border-b border-amber-500/30 p-4">
+          <div className="flex items-center justify-center space-x-3">
+            <div className="w-5 h-5 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin"></div>
+            <div className="text-center">
+              <h4 className="text-amber-300 font-semibold">Waiting for Host Approval</h4>
+              <p className="text-amber-200/80 text-sm mt-1">
+                Your request to join this private room has been sent to the host. Please wait...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {joinStatus === 'rejected' && (
+        <div className="bg-red-500/20 border-b border-red-500/30 p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-center flex-1">
+              <h4 className="text-red-300 font-semibold">Request Rejected</h4>
+              <p className="text-red-200/80 text-sm mt-1">
+                Your request to join this room was rejected by the host.
+              </p>
+            </div>
+            <button
+              onClick={onLeave}
+              className="ml-4 px-4 py-2 bg-red-500/30 hover:bg-red-500/40 text-red-300 rounded-lg transition-all"
+            >
+              Leave Room
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Connection Status */}
       {!isConnected && (
         <div className="bg-red-500/20 border-b border-red-500/30 p-3">
@@ -1012,7 +1046,7 @@ export default function ChatRoom({ roomId, onLeave, isHost: initialIsHost = fals
             <div className="flex space-x-2">
               <button
                 onClick={() => handleStartCall(false)}
-                disabled={callState.isActive || !isConnected}
+                disabled={callState.isActive || !isConnected || joinStatus === 'pending' || joinStatus === 'rejected'}
                 className="p-3 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Start voice call"
               >
@@ -1020,7 +1054,7 @@ export default function ChatRoom({ roomId, onLeave, isHost: initialIsHost = fals
               </button>
               <button
                 onClick={() => handleStartCall(true)}
-                disabled={callState.isActive || !isConnected}
+                disabled={callState.isActive || !isConnected || joinStatus === 'pending' || joinStatus === 'rejected'}
                 className="p-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Start video call"
               >
@@ -1028,7 +1062,7 @@ export default function ChatRoom({ roomId, onLeave, isHost: initialIsHost = fals
               </button>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                disabled={!isConnected}
+                disabled={!isConnected || joinStatus === 'pending' || joinStatus === 'rejected'}
                 className="p-3 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Share file"
               >
@@ -1042,14 +1076,22 @@ export default function ChatRoom({ roomId, onLeave, isHost: initialIsHost = fals
                 type="text"
                 value={newMessage}
                 onChange={handleInputChange}
-                placeholder={isConnected ? "Type an encrypted message..." : "Connecting..."}
+                placeholder={
+                  joinStatus === 'pending'
+                    ? "Waiting for host approval..."
+                    : joinStatus === 'rejected'
+                    ? "Your join request was rejected"
+                    : isConnected
+                    ? "Type an encrypted message..."
+                    : "Connecting..."
+                }
                 className="flex-1 bg-slate-700/50 border border-slate-600 rounded-full px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 transition-all disabled:opacity-50"
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                disabled={!isConnected}
+                disabled={!isConnected || joinStatus === 'pending' || joinStatus === 'rejected'}
               />
               <button
                 onClick={handleSendMessage}
-                disabled={!newMessage.trim() || !isConnected}
+                disabled={!newMessage.trim() || !isConnected || joinStatus === 'pending' || joinStatus === 'rejected'}
                 className="p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-blue-500/25"
                 title="Send message"
               >
